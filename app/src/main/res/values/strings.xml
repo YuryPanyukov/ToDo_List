@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Список дел</string>
+    <string name="widget_description">Дела на день с быстрым отмечанием</string>
+</resources>

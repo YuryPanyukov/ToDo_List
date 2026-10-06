@@ -7,4 +7,12 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Палитра статичного превью виджета (см. res/layout/widget_preview.xml) -->
+    <color name="widget_preview_background">#F5F0EB</color>
+    <color name="widget_preview_card">#FFFEF7</color>
+    <color name="widget_preview_primary">#C86B85</color>
+    <color name="widget_preview_on_surface">#2D2A27</color>
+    <color name="widget_preview_on_surface_variant">#6E655D</color>
+    <color name="widget_preview_outline">#D8CFC7</color>
 </resources>

@@ -104,6 +104,8 @@ class TaskRepository(
     }
 
     private fun notifyWidgets() {
-        widgetScope.launch { TodoWidget().updateAll(context) }
+        // Обновление виджета не должно ронять приложение, если рендер не удался
+        // (например, виджет удалён с рабочего стола или хост недоступен).
+        widgetScope.launch { runCatching { TodoWidget().updateAll(context) } }
     }
 }

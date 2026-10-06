@@ -1,36 +1,71 @@
 package code_SyS.todo_list.widget
 
 import android.content.Context
+import androidx.glance.GlanceId
+import androidx.glance.action.ActionParameters
+import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.updateAll
 import code_SyS.todo_list.data.TodoApp
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import java.time.LocalDate
+
+/** Ключ с id дела для [ToggleTaskAction]. */
+val TaskIdKey: ActionParameters.Key<Long> = ActionParameters.Key("taskId")
+
+/** Ключ со сдвигом даты (в днях) для [ShiftDateAction]. */
+val DateDeltaKey: ActionParameters.Key<Long> = ActionParameters.Key("dateDelta")
 
 /**
- * Здесь в точке каталога Glance 1.1.1 не дана поддержка Action / updateAll.
- * Ниже заглушки для шорткатов виджета; их реализация ожидается при подключении Glance новее 1.2.0.
+ * Отметка дела выполненным прямо из виджета. Репозиторий после мутации сам
+ * вызывает [TodoWidget.updateAll], поэтому здесь дополнительное обновление не нужно.
  */
-fun toggleTask(context: Context, taskId: Long) {
-    CoroutineScope(Dispatchers.IO).launch {
+class ToggleTaskAction : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters,
+    ) {
+        val taskId = parameters[TaskIdKey] ?: return
         (context.applicationContext as TodoApp).repository.toggleDone(taskId)
-        // update widget:
-        // TodoWidget.updateAll(context)
     }
 }
 
-fun shiftDate(context: Context, delta: Long) {
-    val newDate = WidgetPrefs.selectedDate(context).plusDays(delta)
-    WidgetPrefs.setSelectedDate(context, newDate)
+/** Переключение выбранного дня конкретного экземпляра виджета (вчера/завтра). */
+class ShiftDateAction : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters,
+    ) {
+        val delta = parameters[DateDeltaKey] ?: return
+        shiftWidgetDate(context, glanceId, delta)
+        TodoWidget().updateAll(context)
+    }
 }
 
-fun toggleHideDone(context: Context) {
-    WidgetPrefs.setHideDone(context, !WidgetPrefs.hideDone(context))
+/** Сброс выбранного дня виджета на сегодня. */
+class ResetDateAction : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters,
+    ) {
+        updateWidgetState(context, glanceId) {
+            this[SelectedDateKey] = LocalDate.now().toString()
+        }
+        TodoWidget().updateAll(context)
+    }
 }
 
-fun resetDate(context: Context) {
-    WidgetPrefs.setSelectedDate(context, java.time.LocalDate.now())
-}
-
-fun openApp(context: Context) {
-    // open application via intent — stub pending
+/** Переключение режима «Скрыть выполненные» для конкретного экземпляра виджета. */
+class ToggleHideDoneAction : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters,
+    ) {
+        updateWidgetState(context, glanceId) {
+            this[HideDoneKey] = !(this[HideDoneKey] ?: false)
+        }
+        TodoWidget().updateAll(context)
+    }
 }

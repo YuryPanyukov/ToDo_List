@@ -21,8 +21,8 @@ data class Task(
 
         fun fromEntity(e: TaskEntity): Task = Task(
             id = e.id,
-            title = e.title,
-            description = e.description,
+            title = e.title?.trim() ?: "",
+            description = e.description?.trim() ?: "",
             date = Instant.ofEpochMilli(e.dateMillis).atZone(zone).toLocalDate(),
             time = e.timeMillis?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalTime() },
             isDone = e.isDone,

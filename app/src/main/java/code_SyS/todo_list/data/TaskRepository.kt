@@ -1,6 +1,8 @@
 package code_SyS.todo_list.data
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import androidx.glance.appwidget.updateAll
 import code_SyS.todo_list.data.local.TaskDao
 import code_SyS.todo_list.data.local.TaskEntity
@@ -13,10 +15,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
 
-/**
- * Единая точка доступа к задачам. После каждой мутации уведомляет виджеты,
+/** Единая точка доступа к задачам. После каждой мутации уведомляет виджеты,
  * чтобы список на рабочем столе всегда отображал актуальные данные.
  */
 class TaskRepository(
@@ -25,14 +27,27 @@ class TaskRepository(
 ) {
 
     private val widgetScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val widgetUpdateHandler = Handler(Looper.getMainLooper())
+
+    private fun scheduleWidgetUpdate() {
+        // Обновления могут идти с любого потока, но Handler привязан к main looper.
+        widgetUpdateHandler.removeCallbacksAndMessages(null)
+        widgetUpdateHandler.postDelayed(
+            Runnable {
+                // updateAll — suspend-функция, поэтому вызываем её из корутины.
+                runBlocking {
+                    runCatching { TodoWidget().updateAll(context) }
+                }
+            },
+            WIDGET_UPDATE_DEBOUNCE_MS,
+        )
+    }
 
     fun observeForDate(date: LocalDate): Flow<List<Task>> =
         dao.observeForDate(Task.startOfDayMillis(date)).map { list -> list.map(Task::fromEntity) }
 
     fun observeBetween(from: LocalDate, to: LocalDate): Flow<Map<LocalDate, List<Task>>> =
         dao.observeBetween(Task.startOfDayMillis(from), Task.startOfDayMillis(to))
-            // Сначала маппинг, потом группировка по уже готовой дате: так `fromEntity`
-            // вызывается один раз на запись (раньше — дважды, в keySelector и valueTransform).
             .map { entities -> entities.map(Task::fromEntity).groupBy(Task::date) }
 
     suspend fun getTask(id: Long): Task? = dao.getById(id)?.let(Task::fromEntity)
@@ -40,6 +55,11 @@ class TaskRepository(
     /** Блокирующая выборка для виджета (вызывается из provideGlance на Dispatchers.IO). */
     suspend fun getTasksForDateBlocking(date: LocalDate): List<Task> =
         observeForDate(date).first()
+
+    companion object {
+        /** Минимальный интервал между вызовами виджета при частых мутациях. */
+        private const val WIDGET_UPDATE_DEBOUNCE_MS = 350L
+    }
 
     suspend fun addTask(title: String, description: String, date: LocalDate, timeMillis: Long?, priority: Int) {
         val dateMillis = Task.startOfDayMillis(date)
@@ -108,6 +128,7 @@ class TaskRepository(
     private fun notifyWidgets() {
         // Обновление виджета не должно ронять приложение, если рендер не удался
         // (например, виджет удалён с рабочего стола или хост недоступен).
-        widgetScope.launch { runCatching { TodoWidget().updateAll(context) } }
+        // При частых мутациях обновление coalesce-ится через scheduleWidgetUpdate().
+        scheduleWidgetUpdate()
     }
 }

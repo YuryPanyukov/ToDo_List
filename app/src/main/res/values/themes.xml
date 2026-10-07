@@ -13,8 +13,8 @@
     -->
     <style name="Theme.ToDo_List.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/app_window_background</item>
-        <!-- Тот же логотип, что рисует StartScreen (см. res/drawable/ic_splash_logo.xml) -->
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
         <item name="postSplashScreenTheme">@style/Theme.ToDo_List</item>
+        <!-- Тот же логотип, что рисует StartScreen (см. res/drawable/ic_splash_logo.xml) -->
     </style>
 </resources>

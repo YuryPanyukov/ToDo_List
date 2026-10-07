@@ -7,12 +7,27 @@ Muted Rose / Sage / Warm Sand.
 
 ## Возможности
 
+### Первый запуск
+
+- **Нативный splash** — через `androidx.core:core-splashscreen`: системный экран
+  запуска с тем же логотипом, что у стартового экрана
+  (`drawable/ic_splash_logo.xml`: круг Muted Rose + галочка, в тёмной теме —
+  палитра DarkColors), показывается ещё до первого кадра Compose — Android 12+
+  и backport до API 24.
+- **Стартовый экран** — логотип с spring-анимацией, тап пропускает ожидание,
+  дальше автопереход на календарь.
+- **Онбординг** — пять страниц о календаре, делах, приоритетах, выполненных
+  и виджете; показывается один раз, вернуться можно из настроек.
+- **Настройки** — экран из шапки календаря: повтор знакомства и версия приложения.
+
 ### Календарь и дела
 
 - **Режимы просмотра** — переключение между сеткой месяца и компактной полосой
   недели; навигация стрелками по месяцам.
-- **Детальная панель дня** — выбранный день раскрывается панелью с активными
-  и выполненными делами; можно скрыть выполненные.
+- **Экран дня** — тап по дню в сетке месяца или полосе недели открывает
+  отдельный экран дня (`day_detail/{date}`) с активными и выполненными делами;
+  выполненные скрываются переключателем в шапке. Число дня «перелетает» из
+  календаря в шапку экрана (Shared Element Transition).
 - **Приоритеты** — три уровня (Низкий / Средний / Высокий) с цветовой кодировкой:
   Sage, Sand, Rose; индикатор приоритета отображается в карточке дела и в виджете.
 - **Время** — каждое дело может быть привязано ко времени (`LocalTime`);
@@ -40,14 +55,16 @@ Muted Rose / Sage / Warm Sand.
   приоритеты и акцентные элементы выдержаны в единой гамме.
 - **Типографика** — системные `Serif` / `SansSerif` (в планах: `Playfair Display`
   + `Nunito Sans`).
+- **Анимации** — Shared Element Transition «день → экран дня», каскадное
+  появление списка дел, пружины для FAB и модалок (`ui/theme/Motion.kt`).
 
 ## Стек технологий
 
 | Компонент | Технология |
 |---|---|
-| Язык | Kotlin 11 |
-| UI | Jetpack Compose + Material 3 (Compose BOM) |
-| Навигация | один экран (`CalendarScreen`), в планах — Navigation Compose |
+| Язык | Kotlin 2.2.10 (JVM target 11) |
+| UI | Jetpack Compose + Material 3 (Compose BOM 2026.02.01) |
+| Навигация | Navigation Compose (маршруты `calendar`, `settings`, `day_detail/{date}`) |
 | ViewModel | Lifecycle ViewModel + Compose |
 | Хранилище | Room (KSP) + `java.time` (desugaring) |
 | Виджет | Jetpack Glance (AppWidget) |
@@ -65,7 +82,8 @@ MVVM с разделением на слои (все имена пакетов �
 app/src/main/java/code_SyS/todo_list/
 ├── MainActivity.kt            # точка входа
 ├── data/                      # модели и хранилища
-│   ├── TodoApp.kt             # Application + глобальный repository
+│   ├── TodoApp.kt             # Application + глобальный repository + prefs
+│   ├── AppPrefs.kt            # SharedPreferences: флаг онбординга
 │   ├── TaskRepository.kt      # CRUD-операции над задачами
 │   └── local/
 │       ├── TodoDatabase.kt    # Room база данных
@@ -76,34 +94,41 @@ app/src/main/java/code_SyS/todo_list/
 │   └── Priority.kt            # приоритеты с цветом и меткой
 ├── widget/                    # Glance-виджет
 │   ├── TodoWidget.kt          # GlanceAppWidget + UI-контент
-│   ├── WidgetActions.kt       # действия виджета (toggle, shift date, toggle hide)
+│   ├── WidgetActions.kt       # действия виджета (toggle, shift date, reset date, toggle hide)
 │   └── WidgetPrefs.kt         # состояние виджета (GlanceStateDefinition)
 └── ui/
+    ├── AppRoot.kt                 # стадии START → ONBOARDING? → MAIN (Crossfade)
+    ├── start/StartScreen.kt       # стартовый экран (splash)
+    ├── onboarding/OnboardingScreen.kt  # онбординг: пять страниц
+    ├── navigation/AppNavHost.kt   # граф маршрутов + общий редактор дел
     ├── calendar/
-    │   ├── CalendarScreen.kt      # главный экран: календарь + панель дня
+    │   ├── CalendarScreen.kt      # главный экран: календарь + сводка дня
     │   ├── CalendarViewModel.kt   # состояние, события, сохранение задач
     │   ├── CalendarState.kt       # UI-состояние и режимы (MONTH/WEEK)
     │   └── components/
     │       ├── CalendarGrid.kt    # MonthGrid + WeekStrip + WeekdayHeader
-    │       ├── DayPanel.kt        # панель дня: активные/выполненные, переключатель
     │       ├── TaskCard.kt        # карточка задачи с приоритетом
     │       └── TaskEditorSheet.kt # редактор дела (ModalBottomSheet)
+    ├── daydetail/DayDetailScreen.kt # полный экран дня (day_detail/{date})
+    ├── settings/SettingsScreen.kt # настройки: повтор онбординга, версия
     └── theme/
         ├── Color.kt               # палитра Muted Rose / Sage / Warm Sand
         ├── Type.kt                # типографика
+        ├── Motion.kt              # пружины приложения (AppMotion)
         └── Theme.kt               # Material3 theme + customShapes
 ```
 
 ### Ключевая логика
 
 `TaskRepository` работает с Room-базой: `getTasksForDateBlocking()` делает
-блокирующий выборку (для виджета), `getTasksForDate()` возвращает `Flow`.
+блокирующую выборку (для виджета), `observeForDate()` / `observeBetween()`
+возвращают `Flow`.
 `CalendarViewModel` собирает UI-состояние в `StateFlow<CalendarState>`,
-обрабатывает события (`CalendarEvent`) и управляет редактором (`StateFlow<TaskEditor?>`).
+обрабатывает события (`CalendarEvent`) и управляет редактором (`StateFlow<TaskEditorState?>`).
 
 Виджет читает состояние через `GlanceStateDefinition` (выбирает дату, режим
 «скрыть выполненные» для конкретного экземпляра виджета) и выполняет действия
-через `GlanceActionCallback`: `ToggleTaskAction`, `ShiftDateAction`,
+через `ActionCallback`: `ToggleTaskAction`, `ShiftDateAction`, `ResetDateAction`,
 `ToggleHideDoneAction`.
 
 ### Хранение данных
@@ -121,12 +146,13 @@ app/src/main/java/code_SyS/todo_list/
 
 Краткий обзор незакрытых направлений:
 
-- **Дизайн** — реальные шрифты, Dynamic Color (Material You), анимации,
-  адаптивные иконки.
-- **Архитектура** — multi-module, DI (Koin/Hilt), UseCases.
-- **Экраны** — Navigation Compose, экран настроек, режим DAY, FAB с анимацией.
-- **Календарь** — Drag & Drop, перенос на произвольную дату, подзадачи,
-  напоминания.
-- **Виджет** — размер 4×4, обновление через WorkManager, автотесты.
-- **Ретеншен** — утренний бриф, вечерний рефлекс, теги-эмоции.
-- **Релиз** — CI/CD, Play Console, скриншоты.
+- **Дизайн** — реальные шрифты (`Playfair Display` / `Nunito Sans`), Dynamic Color
+  (Material You), анимация «галочки» в виджете.
+- **Архитектура** — multi-module, DI (Koin/Hilt), UseCases + интерфейс репозитория.
+- **Экраны** — режим DAY, «Синхронизация» в меню.
+- **Календарь** — Drag & Drop, перенос на произвольную дату через Date Picker,
+  подзадачи, напоминания по времени дела.
+- **Виджет** — размер 4×4, обновление через WorkManager.
+- **Ретеншен** — утренний бриф, вечерний рефлекс, теги-эмоции,
+  виджет «Свободный слот».
+- **Релиз** — CI/CD, Play Console, скриншоты, политика конфиденциальности.

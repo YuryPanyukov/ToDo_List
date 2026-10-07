@@ -1,5 +1,12 @@
 package code_SyS.todo_list.ui.calendar.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +28,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,10 +36,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import code_SyS.todo_list.domain.Priority
 import code_SyS.todo_list.domain.Task
 import code_SyS.todo_list.ui.calendar.TaskEditorState
+import code_SyS.todo_list.ui.theme.AppMotion
 import code_SyS.todo_list.ui.theme.customShapes
 import java.time.LocalDate
 import java.time.LocalTime
@@ -42,6 +53,9 @@ import java.util.Locale
 private val dateFullFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("ru"))
 private val timeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
+/** Длительность сопутствующего затемнения содержимого, мс — пружина задаётся [AppMotion]. */
+private const val SHEET_CONTENT_FADE_MS = 200
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,6 +72,20 @@ fun TaskEditorSheet(
     var priority by remember(editorState) { mutableStateOf(task?.priority ?: Priority.LOW) }
     var showTimePicker by remember { mutableStateOf(false) }
 
+    // Содержимое модалки «садится» на место с пружиной, пока лист поднимается — §2 спеки (Motion).
+    var contentVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { contentVisible = true }
+    val contentScale by animateFloatAsState(
+        targetValue = if (contentVisible) 1f else 0.94f,
+        animationSpec = AppMotion.bouncy(),
+        label = "sheetContentScale",
+    )
+    val contentAlpha by animateFloatAsState(
+        targetValue = if (contentVisible) 1f else 0f,
+        animationSpec = tween(SHEET_CONTENT_FADE_MS),
+        label = "sheetContentAlpha",
+    )
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         shape = MaterialTheme.customShapes.bottomSheet,
@@ -66,6 +94,12 @@ fun TaskEditorSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .graphicsLayer {
+                    scaleX = contentScale
+                    scaleY = contentScale
+                    alpha = contentAlpha
+                    transformOrigin = TransformOrigin(0.5f, 1f)
+                }
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -116,7 +150,13 @@ fun TaskEditorSheet(
                     TextButton(onClick = { showTimePicker = true }) {
                         Text(text = time?.format(timeFormatter) ?: "Выбрать")
                     }
-                    if (time != null) {
+                    AnimatedVisibility(
+                        visible = time != null,
+                        enter = fadeIn(animationSpec = tween(SHEET_CONTENT_FADE_MS)) +
+                            expandHorizontally(animationSpec = AppMotion.smooth()),
+                        exit = fadeOut(animationSpec = tween(SHEET_CONTENT_FADE_MS)) +
+                            shrinkHorizontally(animationSpec = AppMotion.smooth()),
+                    ) {
                         TextButton(onClick = { time = null }) { Text("Очистить") }
                     }
                 }

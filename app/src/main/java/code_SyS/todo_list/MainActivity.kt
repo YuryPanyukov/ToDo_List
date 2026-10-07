@@ -6,10 +6,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import code_SyS.todo_list.data.TodoApp
-import code_SyS.todo_list.ui.calendar.CalendarScreen
+import code_SyS.todo_list.ui.AppRoot
 import code_SyS.todo_list.ui.calendar.CalendarViewModel
 import code_SyS.todo_list.ui.theme.TodoAppTheme
 import androidx.lifecycle.ViewModel
@@ -22,11 +23,15 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Нативный splash (Android 12+ и его backport): показывается до первого кадра Compose,
+        // дальше его подхватывает собственный StartScreen.
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val app = application as TodoApp
         setContent {
             TodoAppTheme {
-                CalendarScreen(viewModel = viewModel)
+                AppRoot(viewModel = viewModel, prefs = app.prefs)
             }
         }
     }

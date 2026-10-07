@@ -8,6 +8,14 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
+    <!-- Фон окна на старте — совпадает с surface темы, убирает белую вспышку до Compose -->
+    <color name="app_window_background">#FFFEF7</color>
+
+    <!-- Логотип системного splash — совпадает с логотипом StartScreen: круг primary + галочка onPrimary.
+         Тёмные значения — в values-night/colors.xml (RosePrimaryDark / тёмный onPrimary). -->
+    <color name="splash_logo_circle">#C86B85</color>
+    <color name="splash_logo_check">#FFFFFF</color>
+
     <!-- Палитра статичного превью виджета (см. res/layout/widget_preview.xml) -->
     <color name="widget_preview_background">#F5F0EB</color>
     <color name="widget_preview_card">#FFFEF7</color>

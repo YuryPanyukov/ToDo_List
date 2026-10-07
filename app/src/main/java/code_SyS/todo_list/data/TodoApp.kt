@@ -8,4 +8,6 @@ class TodoApp : Application() {
     val repository: TaskRepository by lazy {
         TaskRepository(TodoDatabase.get(this).taskDao(), this)
     }
+
+    val prefs: AppPrefs by lazy { AppPrefs(this) }
 }

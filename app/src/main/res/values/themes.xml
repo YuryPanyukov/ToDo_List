@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.ToDo_List" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.ToDo_List" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Цвет «под тему» до первого кадра Compose -->
+        <item name="android:windowBackground">@color/app_window_background</item>
+    </style>
+
+    <!--
+      Тема запуска: нативный splash Android 12+ (и его backport на API 24–30 через
+      androidx.core:core-splashscreen). Показывается до первого кадра Compose,
+      после чего система сама ставит postSplashScreenTheme.
+    -->
+    <style name="Theme.ToDo_List.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/app_window_background</item>
+        <!-- Тот же логотип, что рисует StartScreen (см. res/drawable/ic_splash_logo.xml) -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.ToDo_List</item>
+    </style>
 </resources>

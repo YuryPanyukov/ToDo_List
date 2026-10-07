@@ -55,6 +55,8 @@ fun MonthGrid(
     tasksByDate: Map<LocalDate, List<Task>>,
     onDateClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
+    /** Доп. модификатор ячейки по дате — для общего элемента (shared element) перехода. */
+    cellModifier: @Composable (LocalDate) -> Modifier = { Modifier },
 ) {
     val today = LocalDate.now()
     val firstDayOfMonth = currentMonth.atDay(1)
@@ -77,6 +79,7 @@ fun MonthGrid(
                                 hasUndone = tasksByDate[date]?.any { !it.isDone } ?: false,
                                 onClick = { onDateClick(date) },
                                 modifier = Modifier.fillMaxWidth(),
+                                sharedModifier = cellModifier(date),
                             )
                         }
                     }
@@ -94,6 +97,8 @@ fun WeekStrip(
     tasksByDate: Map<LocalDate, List<Task>>,
     onDateClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
+    /** Доп. модификатор ячейки по дате — для общего элемента (shared element) перехода. */
+    cellModifier: @Composable (LocalDate) -> Modifier = { Modifier },
 ) {
     val today = LocalDate.now()
     val week = (0..6L).map { weekStart.plusDays(it) }
@@ -119,6 +124,7 @@ fun WeekStrip(
                         taskCount = tasksByDate[date]?.size ?: 0,
                         hasUndone = tasksByDate[date]?.any { !it.isDone } ?: false,
                         onClick = { onDateClick(date) },
+                        sharedModifier = cellModifier(date),
                     )
                 }
             }
@@ -135,6 +141,8 @@ private fun DayCell(
     hasUndone: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Общий элемент перехода; применяется внутри отступа, чтобы совпасть с кругом ячейки. */
+    sharedModifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
     val container = when {
@@ -149,6 +157,7 @@ private fun DayCell(
     Column(
         modifier = modifier
             .padding(2.dp)
+            .then(sharedModifier)
             .clip(MaterialTheme.customShapes.calendarCell)
             .background(container)
             .clickable(onClick = onClick),

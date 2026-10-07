@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Список дел</string>
+    <string name="app_tagline">Мягкий планер для ваших дней</string>
     <string name="widget_description">Дела на день с быстрым отмечанием</string>
 </resources>

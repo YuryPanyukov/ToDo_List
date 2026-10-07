@@ -1,5 +1,14 @@
 package code_SyS.todo_list.ui.calendar
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,9 +19,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FabPosition
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -22,20 +32,24 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import code_SyS.todo_list.ui.calendar.components.DayPanel
 import code_SyS.todo_list.ui.calendar.components.MonthGrid
-import code_SyS.todo_list.ui.calendar.components.TaskEditorSheet
 import code_SyS.todo_list.ui.calendar.components.WeekStrip
 import code_SyS.todo_list.ui.calendar.components.WeekdayHeader
+import code_SyS.todo_list.ui.navigation.daySharedKey
+import code_SyS.todo_list.ui.theme.AppMotion
 import code_SyS.todo_list.ui.theme.customShapes
 import java.time.LocalDate
 import java.time.format.TextStyle as JavaTextStyle
@@ -43,12 +57,21 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CalendarScreen(viewModel: CalendarViewModel) {
+fun CalendarScreen(
+    viewModel: CalendarViewModel,
+    onOpenSettings: () -> Unit = {},
+    onOpenDay: (LocalDate) -> Unit = {},
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+) {
     val state by viewModel.uiState.collectAsState()
-    val editor by viewModel.editor.collectAsState()
     val uiEvent by viewModel.uiEvents.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // FAB появляется с пружиной, а не мгновенно — §2 спеки (Motion).
+    var fabVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { fabVisible = true }
 
     LaunchedEffect(uiEvent) {
         when (val e = uiEvent) {
@@ -62,8 +85,16 @@ fun CalendarScreen(viewModel: CalendarViewModel) {
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        // По спеке §6 FAB живёт в левом нижнем углу, а не в правом по умолчанию.
+        floatingActionButtonPosition = FabPosition.Start,
         floatingActionButton = {
-            if (state is CalendarState.Success) {
+            AnimatedVisibility(
+                visible = fabVisible && state is CalendarState.Success,
+                enter = fadeIn(animationSpec = tween(FAB_FADE_MS)) +
+                    scaleIn(animationSpec = AppMotion.bouncy(), initialScale = 0.6f),
+                exit = fadeOut(animationSpec = tween(FAB_FADE_MS)) +
+                    scaleOut(animationSpec = AppMotion.smooth(), targetScale = 0.6f),
+            ) {
                 ExtendedFloatingActionButton(
                     onClick = { viewModel.onEvent(CalendarEvent.OnAddTaskClick) },
                     shape = MaterialTheme.customShapes.fab,
@@ -96,6 +127,27 @@ fun CalendarScreen(viewModel: CalendarViewModel) {
                     Text(message, style = MaterialTheme.typography.bodyLarge)
                 }
             } else {
+                // Клик по дню: сначала выбираем дату (чтобы общий элемент совпал), затем открываем день.
+                val onDayClick: (LocalDate) -> Unit = { date ->
+                    viewModel.onEvent(CalendarEvent.OnDateClick(date))
+                    onOpenDay(date)
+                }
+
+                // Общий элемент перехода: выбранная ячейка календаря ↔ бейдж дня на экране дня.
+                val dayCellModifier: @Composable (LocalDate) -> Modifier = { date ->
+                    if (date == success.selectedDate) {
+                        with(sharedTransitionScope) {
+                            Modifier.sharedBounds(
+                                rememberSharedContentState(daySharedKey(date)),
+                                animatedVisibilityScope,
+                                resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
+                            )
+                        }
+                    } else {
+                        Modifier
+                    }
+                }
+
                 // Верхняя панель: месяц, стрелки, переключатель вида
                 Row(
                     modifier = Modifier
@@ -122,6 +174,9 @@ fun CalendarScreen(viewModel: CalendarViewModel) {
                     }
                     IconButton(onClick = { viewModel.onEvent(CalendarEvent.OnMonthShift(1)) }) {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Следующий месяц")
+                    }
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Настройки")
                     }
                 }
 
@@ -162,7 +217,8 @@ fun CalendarScreen(viewModel: CalendarViewModel) {
                             currentMonth = success.currentMonth,
                             selectedDate = success.selectedDate,
                             tasksByDate = success.tasksByDate,
-                            onDateClick = { viewModel.onEvent(CalendarEvent.OnDateClick(it)) },
+                            onDateClick = onDayClick,
+                            cellModifier = dayCellModifier,
                         )
                     } else {
                         WeekStrip(
@@ -171,44 +227,76 @@ fun CalendarScreen(viewModel: CalendarViewModel) {
                             ),
                             selectedDate = success.selectedDate,
                             tasksByDate = success.tasksByDate,
-                            onDateClick = { viewModel.onEvent(CalendarEvent.OnDateClick(it)) },
+                            onDateClick = onDayClick,
+                            cellModifier = dayCellModifier,
                         )
                     }
                 }
 
-                Text(
-                    text = success.selectedDate.format(daySubtitleFormatter),
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                )
-
-                DayPanel(
+                // Компактная сводка по выбранному дню: тап открывает экран дня.
+                DaySummaryCard(
                     date = success.selectedDate,
-                    activeTasks = success.selectedActive,
-                    doneTasks = success.selectedDone,
-                    hideDone = success.hideDone,
-                    onHideDoneChanged = { viewModel.onEvent(CalendarEvent.OnHideDoneChanged(it)) },
-                    onTaskToggle = { viewModel.onEvent(CalendarEvent.OnTaskToggle(it)) },
-                    onTaskEdit = { viewModel.onEvent(CalendarEvent.OnTaskEdit(it)) },
-                    onTaskMove = { viewModel.onEvent(CalendarEvent.OnTaskMove(it.id, it.date.plusDays(1))) },
-                    onTaskDelete = { viewModel.onEvent(CalendarEvent.OnTaskDelete(it)) },
-                    onAddTask = { viewModel.onEvent(CalendarEvent.OnAddTaskClick) },
+                    activeTasks = success.selectedActive.size,
+                    totalTasks = success.selectedActive.size + success.selectedDone.size,
+                    onClick = { onOpenDay(success.selectedDate) },
                 )
             }
         }
     }
+}
 
-    // Редактор дела
-    editor?.let { editorState ->
-        TaskEditorSheet(
-            editorState = editorState,
-            onSave = { title, description, date, timeMillis, priorityOrdinal ->
-                viewModel.saveTask(title, description, date, timeMillis, priorityOrdinal)
-            },
-            onDismiss = { viewModel.onEvent(CalendarEvent.OnDismissEditor) },
-        )
+/**
+ * Строка-подсказка под сеткой: дата, сколько дел осталось и переход к полному экрану дня.
+ */
+@Composable
+private fun DaySummaryCard(
+    date: LocalDate,
+    activeTasks: Int,
+    totalTasks: Int,
+    onClick: () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(MaterialTheme.customShapes.taskCard)
+            .clickable(onClick = onClick),
+        shape = MaterialTheme.customShapes.taskCard,
+        color = colors.surfaceVariant,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = date.format(daySubtitleFormatter),
+                    style = MaterialTheme.typography.titleLarge,
+                )
+                Text(
+                    text = when {
+                        totalTasks == 0 -> "Дел нет"
+                        activeTasks == 0 -> "Все дела закрыты"
+                        else -> "Осталось: $activeTasks"
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.onSurfaceVariant,
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "Открыть день",
+                tint = colors.primary,
+            )
+        }
     }
 }
+
+/** Длительность сопутствующего FAB затемнения, мс — сама пружина задаётся [AppMotion]. */
+private const val FAB_FADE_MS = 180
 
 private val daySubtitleFormatter: java.time.format.DateTimeFormatter =
     java.time.format.DateTimeFormatter.ofPattern("d MMMM, EEEE", Locale.forLanguageTag("ru"))

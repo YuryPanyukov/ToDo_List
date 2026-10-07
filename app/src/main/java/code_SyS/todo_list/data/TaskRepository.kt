@@ -31,7 +31,9 @@ class TaskRepository(
 
     fun observeBetween(from: LocalDate, to: LocalDate): Flow<Map<LocalDate, List<Task>>> =
         dao.observeBetween(Task.startOfDayMillis(from), Task.startOfDayMillis(to))
-            .map { list -> list.groupBy({ Task.fromEntity(it).date }, Task::fromEntity) }
+            // Сначала маппинг, потом группировка по уже готовой дате: так `fromEntity`
+            // вызывается один раз на запись (раньше — дважды, в keySelector и valueTransform).
+            .map { entities -> entities.map(Task::fromEntity).groupBy(Task::date) }
 
     suspend fun getTask(id: Long): Task? = dao.getById(id)?.let(Task::fromEntity)
 

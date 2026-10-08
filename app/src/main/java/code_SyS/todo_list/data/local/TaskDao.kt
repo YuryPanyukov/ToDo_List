@@ -34,6 +34,9 @@ interface TaskDao {
     @Query("UPDATE tasks SET isDone = :isDone, updatedAt = :updatedAt WHERE id = :id")
     suspend fun setDone(id: Long, isDone: Boolean, updatedAt: Long)
 
+    @Query("UPDATE tasks SET sortOrder = :sortOrder, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun setSortOrder(id: Long, sortOrder: Float, updatedAt: Long)
+
     @Insert
     suspend fun insert(task: TaskEntity): Long
 

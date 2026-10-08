@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import code_SyS.todo_list.domain.Task
 import code_SyS.todo_list.ui.theme.customShapes
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -45,11 +46,12 @@ fun TaskCard(
     task: Task,
     onToggle: () -> Unit,
     onEdit: () -> Unit,
-    onMove: () -> Unit,
+    onMove: (LocalDate) -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
+    var moveDialogOpen by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
 
     Row(
@@ -126,7 +128,7 @@ fun TaskCard(
             DropdownMenuItem(
                 text = { Text("Перенести на другой день") },
                 leadingIcon = { Icon(Icons.Filled.Event, contentDescription = null) },
-                onClick = { menuOpen = false; onMove() },
+                onClick = { menuOpen = false; moveDialogOpen = true },
             )
             DropdownMenuItem(
                 text = { Text("Удалить") },
@@ -134,5 +136,16 @@ fun TaskCard(
                 onClick = { menuOpen = false; onDelete() },
             )
         }
+    }
+
+    if (moveDialogOpen) {
+        AppDatePickerDialog(
+            initialDate = task.date,
+            onConfirm = { newDate ->
+                moveDialogOpen = false
+                onMove(newDate)
+            },
+            onDismiss = { moveDialogOpen = false },
+        )
     }
 }

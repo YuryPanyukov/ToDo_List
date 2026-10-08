@@ -104,6 +104,9 @@ class CalendarViewModel(
             is CalendarEvent.OnTaskMove -> viewModelScope.launch {
                 repository.moveTask(event.taskId, event.newDate)
             }
+            is CalendarEvent.OnTasksReordered -> viewModelScope.launch {
+                repository.reorderTasks(event.orderedIds)
+            }
             is CalendarEvent.OnTaskDelete -> viewModelScope.launch { repository.deleteTask(event.taskId) }
             is CalendarEvent.OnAddTaskClick -> {
                 _editor.value = TaskEditorState(date = selectedDate, task = null)

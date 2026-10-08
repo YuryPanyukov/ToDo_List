@@ -119,6 +119,20 @@ class TaskRepository(
         notifyWidgets()
     }
 
+    /**
+     * Ручная сортировка (Drag & Drop): сохраняет порядок дел как 1..n по списку [orderedIds].
+     * Дробные значения не нужны — при переносе/добавлении новый sortOrder считается
+     * как max+1 и всё равно оказывается в конце.
+     */
+    suspend fun reorderTasks(orderedIds: List<Long>) {
+        if (orderedIds.size < 2) return
+        val updatedAt = System.currentTimeMillis()
+        orderedIds.forEachIndexed { index, id ->
+            dao.setSortOrder(id, index + 1f, updatedAt)
+        }
+        notifyWidgets()
+    }
+
     suspend fun deleteTask(id: Long) {
         val entity = dao.getById(id) ?: return
         dao.delete(entity)

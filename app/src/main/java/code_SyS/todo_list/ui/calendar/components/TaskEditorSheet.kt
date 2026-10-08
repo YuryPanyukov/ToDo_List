@@ -20,6 +20,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -27,6 +29,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -71,6 +75,7 @@ fun TaskEditorSheet(
     var time by remember(editorState) { mutableStateOf(task?.time) }
     var priority by remember(editorState) { mutableStateOf(task?.priority ?: Priority.LOW) }
     var showTimePicker by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     // Содержимое модалки «садится» на место с пружиной, пока лист поднимается — §2 спеки (Motion).
     var contentVisible by remember { mutableStateOf(false) }
@@ -122,17 +127,29 @@ fun TaskEditorSheet(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            // Дата: строка с мини-навигацией по дням
+            // Дата: ← / → для ±1 дня, календарь — выбор произвольной даты
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 TextButton(onClick = { date = date.minusDays(1) }) { Text("←") }
-                Text(
-                    text = date.format(dateFullFormatter),
-                    style = MaterialTheme.typography.bodyLarge,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = date.format(dateFullFormatter),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.CalendarToday,
+                            contentDescription = "Выбрать дату в календаре",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 TextButton(onClick = { date = date.plusDays(1) }) { Text("→") }
             }
 
@@ -217,6 +234,17 @@ fun TaskEditorSheet(
                 TextButton(onClick = { showTimePicker = false }) { Text("Отмена") }
             },
             text = { TimePicker(state = timePickerState) },
+        )
+    }
+
+    if (showDatePicker) {
+        AppDatePickerDialog(
+            initialDate = date,
+            onConfirm = { picked ->
+                date = picked
+                showDatePicker = false
+            },
+            onDismiss = { showDatePicker = false },
         )
     }
 }

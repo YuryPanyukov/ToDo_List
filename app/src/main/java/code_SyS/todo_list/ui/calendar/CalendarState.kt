@@ -33,6 +33,8 @@ sealed interface CalendarEvent {
     data class OnTaskClick(val task: Task) : CalendarEvent
     data class OnTaskToggle(val taskId: Long) : CalendarEvent
     data class OnTaskMove(val taskId: Long, val newDate: LocalDate) : CalendarEvent
+    /** Drag & Drop: новый порядок дел за день (список id в порядке следования). */
+    data class OnTasksReordered(val orderedIds: List<Long>) : CalendarEvent
     data class OnTaskDelete(val taskId: Long) : CalendarEvent
     data class OnTaskEdit(val task: Task) : CalendarEvent
     data class OnHideDoneChanged(val hide: Boolean) : CalendarEvent
